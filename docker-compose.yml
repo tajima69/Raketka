@@ -1,0 +1,45 @@
+networks:
+  rpt:
+    driver: bridge
+    name: rpt
+
+services:
+  postgres-rpt:
+    container_name: postgres-rpt
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rpt
+    ports:
+      - "5432:5432"
+    volumes:
+      - todo_data:/var/lib/postgresql/data
+    networks:
+      - rpt
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.admin
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+      - "5051:432"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - rpt
+    depends_on:
+      - postgres-rpt
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:80 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgadmin_data:
+  todo_data:
