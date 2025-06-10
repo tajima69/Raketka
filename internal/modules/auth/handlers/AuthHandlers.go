@@ -1,10 +1,10 @@
-package auth
+package handlers
 
 import (
 	"database/sql"
 	"github.com/gofiber/fiber/v2"
 	_ "github.com/lib/pq"
-	"github.com/tajima69/Raketka/internal/modules"
+	"github.com/tajima69/Raketka/internal/modules/auth/dto"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 )
@@ -14,10 +14,10 @@ type Handler struct {
 }
 
 func (h *Handler) AuthGetHandler(c *fiber.Ctx) error {
-	var user modules.Users
+	var user dto.Users
 
 	id := c.Params("id")
-	query := "SELECT * FROM public.user WHERE id = $1"
+	query := "SELECT * FROM users WHERE id = $1"
 
 	res, err := h.Db.Query(query, id)
 	if err != nil {
@@ -47,7 +47,7 @@ func (h *Handler) AuthGetHandler(c *fiber.Ctx) error {
 }
 
 func (h *Handler) AuthPostHandler(c *fiber.Ctx) error {
-	var user modules.Users
+	var user dto.Users
 	if err := c.BodyParser(&user); err != nil {
 		log.Printf("Body parse error: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -62,7 +62,7 @@ func (h *Handler) AuthPostHandler(c *fiber.Ctx) error {
 	}
 
 	var exists bool
-	err := h.Db.QueryRow("SELECT EXISTS (SELECT 1 FROM public.user WHERE username = $1)", user.Username).Scan(&exists)
+	err := h.Db.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE username = $1)", user.Username).Scan(&exists)
 	if err != nil {
 		log.Printf("Check user exists error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -83,7 +83,7 @@ func (h *Handler) AuthPostHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	query := `INSERT INTO public.users (username, password) VALUES ($1, $2) RETURNING id`
+	query := `INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id`
 	err = h.Db.QueryRow(query, user.Username, string(hashedPassword)).Scan(&user.ID)
 	if err != nil {
 		log.Printf("Insert error: %v", err)
@@ -95,4 +95,45 @@ func (h *Handler) AuthPostHandler(c *fiber.Ctx) error {
 	user.Password = ""
 
 	return c.Status(fiber.StatusCreated).JSON(user)
+}
+
+func (h *Handler) LoginPostHandler(c *fiber.Ctx) error {
+	var creds dto.Users
+	if err := c.BodyParser(&creds); err != nil {
+		log.Printf("Body parse error: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+		})
+	}
+
+	if creds.Username == "" || creds.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "username and password are required",
+		})
+	}
+
+	var user dto.Users
+	query := "SELECT id, username, password FROM users WHERE username = $1"
+	err := h.Db.QueryRow(query, creds.Username).Scan(&user.ID, &user.Username, &user.Password)
+	if err == sql.ErrNoRows {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "invalid username or password",
+		})
+	} else if err != nil {
+		log.Printf("DB query error: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "internal error",
+		})
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "invalid username or password",
+		})
+	}
+
+	user.Password = ""
+
+	return c.JSON(user)
 }

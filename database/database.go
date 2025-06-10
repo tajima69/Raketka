@@ -12,7 +12,7 @@ func DbConnect() (*sql.DB, error) {
 	password := "postgres"
 	host := "localhost"
 	port := "5432"
-	dbname := "todo"
+	dbname := "rpt"
 	sslmode := "disable"
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, password, host, port, dbname, sslmode)

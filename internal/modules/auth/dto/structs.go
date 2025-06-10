@@ -1,4 +1,4 @@
-package modules
+package dto
 
 type Users struct {
 	ID       int    `json:"id"`
