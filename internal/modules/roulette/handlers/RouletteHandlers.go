@@ -7,12 +7,6 @@ import (
 	"time"
 )
 
-type SpinResult struct {
-	Sectors     []string `json:"sectors"`
-	WinnerIndex int      `json:"winner_index"`
-	WinnerColor string   `json:"winner_color"`
-}
-
 var allBets []dto.Bet
 
 func PlaceBetHandler(c *fiber.Ctx) error {
@@ -54,8 +48,16 @@ func StartRoundHandler(c *fiber.Ctx) error {
 	winnerIndex := rand.Intn(len(sectors))
 	winnerColor := sectors[winnerIndex]
 
+	colorTotals := map[string]float64{
+		"blue":  0,
+		"green": 0,
+		"red":   0,
+	}
+
 	var winners []dto.WinnerResult
 	for _, bet := range allBets {
+		colorTotals[bet.Color] += bet.Amount
+
 		if bet.Color == winnerColor {
 			multiplier := 2.0
 			if winnerColor == "red" {
@@ -76,28 +78,20 @@ func StartRoundHandler(c *fiber.Ctx) error {
 	})
 }
 
-func (s *SpinResult) SpinWheelHandler(c *fiber.Ctx) error {
-	rand.Seed(time.Now().UnixNano())
-
-	sectors := make([]string, 0, 31)
-
-	for i := 0; i < 15; i++ {
-		sectors = append(sectors, "blue", "green")
+func GetUserBetsHandler(c *fiber.Ctx) error {
+	userID := c.Query("user_id")
+	if userID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "user_id is required",
+		})
 	}
 
-	sectors = append(sectors, "red")
-
-	rand.Shuffle(len(sectors), func(i, j int) {
-		sectors[i], sectors[j] = sectors[j], sectors[i]
-	})
-
-	winnerIndex := rand.Intn(len(sectors))
-	winnerColor := sectors[winnerIndex]
-
-	result := SpinResult{
-		Sectors:     sectors,
-		WinnerIndex: winnerIndex,
-		WinnerColor: winnerColor,
+	var userBets []dto.Bet
+	for _, bet := range allBets {
+		if bet.UserID == userID {
+			userBets = append(userBets, bet)
+		}
 	}
-	return c.JSON(result)
+
+	return c.JSON(userBets)
 }

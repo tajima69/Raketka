@@ -7,8 +7,7 @@ import (
 )
 
 func Rout(app *fiber.App, database *sql.DB) {
-	SpinResult := handlers.SpinResult{}
 	app.Post("/bet", handlers.PlaceBetHandler)
 	app.Post("/round", handlers.StartRoundHandler)
-	app.Get("/spin", SpinResult.SpinWheelHandler)
+	app.Get("bets", handlers.GetUserBetsHandler)
 }
