@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/gofiber/fiber/v2"
 	_ "github.com/lib/pq"
+	"github.com/tajima69/Raketka/internal/middleware"
 	"github.com/tajima69/Raketka/internal/modules/auth/dto"
 	"golang.org/x/crypto/bcrypt"
 	"log"
@@ -17,31 +18,22 @@ func (h *Handler) AuthGetHandler(c *fiber.Ctx) error {
 	var user dto.Users
 
 	id := c.Params("id")
-	query := "SELECT * FROM users WHERE id = $1"
+	query := "SELECT id, username, password FROM users WHERE id = $1"
 
-	res, err := h.Db.Query(query, id)
-	if err != nil {
-		c.Context().SetUserValue("error", err)
-		log.Printf("DB query error: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "internal error",
-		})
-	}
-	defer res.Close()
-
-	if !res.Next() {
+	row := h.Db.QueryRow(query, id)
+	err := row.Scan(&user.ID, &user.Username, &user.Password)
+	if err == sql.ErrNoRows {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "user not found",
 		})
-	}
-
-	if err := res.Scan(&user.ID, &user.Username, &user.Password); err != nil {
-		c.Context().SetUserValue("error", err)
+	} else if err != nil {
 		log.Printf("DB scan error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "failed to read user",
 		})
 	}
+
+	user.Password = ""
 
 	return c.JSON(user)
 }
@@ -92,9 +84,17 @@ func (h *Handler) AuthPostHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	user.Password = ""
+	token, err := middleware.GenerateJWT(user.ID, user.Username)
+	if err != nil {
+		log.Printf("JWT generation error: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to generate token",
+		})
+	}
 
-	return c.Status(fiber.StatusCreated).JSON(user)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"token": token,
+	})
 }
 
 func (h *Handler) LoginPostHandler(c *fiber.Ctx) error {
@@ -133,7 +133,15 @@ func (h *Handler) LoginPostHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	user.Password = ""
+	token, err := middleware.GenerateJWT(user.ID, user.Username)
+	if err != nil {
+		log.Printf("JWT generation error: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to generate token",
+		})
+	}
 
-	return c.JSON(user)
+	return c.JSON(fiber.Map{
+		"token": token,
+	})
 }
