@@ -11,4 +11,5 @@ func Rout(app *fiber.App, database *sql.DB) {
 	app.Post("/start-round", handlers.StartRoundHandler)
 	app.Post("/bets", middleware.Protected(), handlers.PostBetHandler)
 	app.Get("/bet", handlers.GetUserBetsHandler)
+	app.Get("/result", handlers.GetLastResultHandler)
 }
