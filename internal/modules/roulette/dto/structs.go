@@ -17,13 +17,13 @@ type Games struct {
 }
 
 type Bet struct {
-	UserID string  `json:"id"`
+	UserID int     `json:"id"`
 	Color  string  `json:"color"`
 	Amount float64 `json:"amount"`
 }
 
 type WinnerResult struct {
-	UserID string  `json:"user_id"`
+	UserID int     `json:"user_id"`
 	Amount float64 `json:"amount"`
 }
 
