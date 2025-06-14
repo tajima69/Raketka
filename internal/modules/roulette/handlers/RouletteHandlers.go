@@ -4,10 +4,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/tajima69/Raketka/internal/modules/roulette/dto"
 	"math/rand"
+	"strings"
 	"time"
 )
 
-var allBets []dto.Bet
+var AllBets []dto.Bet
 
 func PlaceBetHandler(c *fiber.Ctx) error {
 	var bet dto.Bet
@@ -23,7 +24,7 @@ func PlaceBetHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	allBets = append(allBets, bet)
+	AllBets = append(AllBets, bet)
 
 	return c.JSON(fiber.Map{
 		"message": "bet placed",
@@ -31,7 +32,7 @@ func PlaceBetHandler(c *fiber.Ctx) error {
 }
 
 func StartRoundHandler(c *fiber.Ctx) error {
-	if len(allBets) == 0 {
+	if len(AllBets) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": "no bets placed",
 		})
@@ -55,7 +56,7 @@ func StartRoundHandler(c *fiber.Ctx) error {
 	}
 
 	var winners []dto.WinnerResult
-	for _, bet := range allBets {
+	for _, bet := range AllBets {
 		colorTotals[bet.Color] += bet.Amount
 
 		if bet.Color == winnerColor {
@@ -70,11 +71,38 @@ func StartRoundHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	allBets = []dto.Bet{}
+	AllBets = []dto.Bet{}
 
 	return c.JSON(dto.RoundResult{
 		WinnerColor: winnerColor,
 		Winners:     winners,
+	})
+}
+
+func PostBetHandler(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+
+	var bet dto.Bet
+	if err := c.BodyParser(&bet); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "invalid body"})
+	}
+
+	bet.UserID = userID
+	bet.Color = strings.ToLower(bet.Color)
+
+	validColors := map[string]bool{"blue": true, "green": true, "red": true}
+	if !validColors[bet.Color] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "invalid color"})
+	}
+	if bet.Amount <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "invalid amount"})
+	}
+
+	AllBets = append(AllBets, bet)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "bet placed",
+		"bet":     bet,
 	})
 }
 
@@ -87,11 +115,10 @@ func GetUserBetsHandler(c *fiber.Ctx) error {
 	}
 
 	var userBets []dto.Bet
-	for _, bet := range allBets {
+	for _, bet := range AllBets {
 		if bet.UserID == userID {
 			userBets = append(userBets, bet)
 		}
 	}
-
 	return c.JSON(userBets)
 }

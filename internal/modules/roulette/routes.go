@@ -9,5 +9,6 @@ import (
 func Rout(app *fiber.App, database *sql.DB) {
 	app.Post("/bet", handlers.PlaceBetHandler)
 	app.Post("/round", handlers.StartRoundHandler)
-	app.Get("bets", handlers.GetUserBetsHandler)
+	app.Post("/bet", handlers.PostBetHandler)
+	app.Get("/bets", handlers.GetUserBetsHandler)
 }
