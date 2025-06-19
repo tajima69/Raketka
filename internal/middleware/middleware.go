@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var SecretKey = []byte(os.Getenv("JWT_SECRET"))
+var SecretKey = []byte(os.Getenv("SECRET_KEY")) // Убедись, что переменная есть
 
 func GenerateJWT(userID int, username string) (string, error) {
 	claims := jwt.MapClaims{
@@ -36,8 +36,17 @@ func Protected() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "invalid or expired token"})
 		}
 
-		claims := token.Claims.(jwt.MapClaims)
-		c.Locals("userID", claims["id"])
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "invalid token claims"})
+		}
+
+		userIDFloat, ok := claims["id"].(float64)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "invalid user id in token"})
+		}
+
+		c.Locals("userID", int(userIDFloat))
 		c.Locals("username", claims["username"])
 
 		return c.Next()

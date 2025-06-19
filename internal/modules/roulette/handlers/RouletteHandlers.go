@@ -5,7 +5,6 @@ import (
 	"github.com/tajima69/Raketka/internal/modules/roulette/dto"
 	"log"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -64,17 +63,11 @@ func StartRoundHandler(c *fiber.Ctx) error {
 }
 
 func GetUserBetsHandler(c *fiber.Ctx) error {
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "user_id is required",
-		})
-	}
-
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid user_id",
+	userIDRaw := c.Locals("userID")
+	userID, ok := userIDRaw.(int)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "unauthorized",
 		})
 	}
 
