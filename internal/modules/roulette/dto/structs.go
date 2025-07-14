@@ -31,3 +31,10 @@ type RoundResult struct {
 	WinnerColor string         `json:"winner_color"`
 	Winners     []WinnerResult `json:"winners"`
 }
+
+type RoundResultDB struct {
+	ID          int            `json:"id"`
+	WinnerColor string         `json:"winner_color"`
+	Winners     []WinnerResult `json:"winners"`
+	CreatedAt   string         `json:"created_at"`
+}

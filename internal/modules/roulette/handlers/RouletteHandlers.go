@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"encoding/json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/tajima69/Raketka/internal/modules/roulette/dto"
 	"log"
@@ -51,15 +53,32 @@ func PostBetHandler(c *fiber.Ctx) error {
 	})
 }
 
-func StartRoundHandler(c *fiber.Ctx) error {
-	if len(AllBets) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "no bets placed",
-		})
-	}
+func StartRoundHandler(db *sql.DB) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if len(AllBets) == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "no bets placed",
+			})
+		}
 
-	result := RunRound()
-	return c.JSON(result)
+		result := RunRound()
+		LastRoundResult = result
+
+		winnersJSON, err := json.Marshal(result.Winners)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to serialize winners"})
+		}
+
+		_, err = db.Exec(`INSERT INTO roulette_results (winner_color, winners) VALUES ($1, $2)`, result.WinnerColor, winnersJSON)
+		if err != nil {
+			log.Printf("DB insert error: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to save result"})
+		}
+
+		AllBets = nil
+
+		return c.JSON(result)
+	}
 }
 
 func GetUserBetsHandler(c *fiber.Ctx) error {
@@ -123,4 +142,48 @@ func RunRound() dto.RoundResult {
 	log.Printf("🎯 Round completed! Winner color: %s | Winners: %+v\n", winnerColor, winners)
 
 	return result
+}
+
+func GetAllResultsHandler(db *sql.DB) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		rows, err := db.Query(`SELECT id, winner_color, winners, created_at FROM roulette_results ORDER BY created_at DESC`)
+		if err != nil {
+			log.Printf("DB query error: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to query results"})
+		}
+		defer rows.Close()
+
+		var results []dto.RoundResultDB
+
+		for rows.Next() {
+			var r dto.RoundResultDB
+			var winnersJSON []byte
+
+			err := rows.Scan(&r.ID, &r.WinnerColor, &winnersJSON, &r.CreatedAt)
+			if err != nil {
+				log.Printf("Row scan error: %v", err)
+				continue
+			}
+
+			err = json.Unmarshal(winnersJSON, &r.Winners)
+			if err != nil {
+				log.Printf("Unmarshal error: %v", err)
+				continue
+			}
+
+			results = append(results, r)
+		}
+
+		return c.JSON(results)
+	}
+}
+func saveRoundResultToDB(db *sql.DB, result dto.RoundResult) error {
+	winnersJSON, err := json.Marshal(result.Winners)
+	if err != nil {
+		return err
+	}
+
+	query := `INSERT INTO roulette_results (winner_color, winners) VALUES ($1, $2)`
+	_, err = db.Exec(query, result.WinnerColor, winnersJSON)
+	return err
 }
