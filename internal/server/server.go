@@ -14,7 +14,7 @@ func Server(db *sql.DB) {
 		Format: "${time} ${ip} - ${method} ${path} ${status} - ${latency} - error: ${error}\n",
 	}))
 	auth.Rout(app, db)
-	roulette.Rout(app)
+	roulette.Rout(app, db)
 	err := app.Listen(":3000")
 	if err != nil {
 		panic(err)

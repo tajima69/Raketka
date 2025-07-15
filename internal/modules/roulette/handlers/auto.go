@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"database/sql"
 	"log"
 	"time"
 )
 
-func StartAutoRounds(interval time.Duration) {
+func StartAutoRounds(db *sql.DB, interval time.Duration) {
 	go func() {
 		for {
 			time.Sleep(interval)
@@ -14,8 +15,12 @@ func StartAutoRounds(interval time.Duration) {
 				continue
 			}
 
-			log.Println("Starting automatic round")
-			RunRound()
+			log.Println("⚙️ Starting automatic round")
+
+			result := RunRound()
+			if err := saveRoundResultToDB(db, result); err != nil {
+				log.Printf("❌ Auto round DB save error: %v", err)
+			}
 		}
 	}()
 }

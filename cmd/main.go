@@ -14,13 +14,13 @@ func main() {
 		log.Println("Error loading .env file")
 	}
 
-	handlers.StartAutoRounds(30 * time.Second)
-
 	DB, err := database.DbConnect()
 	if err != nil {
 		panic(err)
 	}
 	defer DB.Close()
+
+	handlers.StartAutoRounds(DB, 10*time.Second)
 
 	server.Server(DB)
 }

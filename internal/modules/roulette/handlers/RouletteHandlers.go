@@ -64,13 +64,7 @@ func StartRoundHandler(db *sql.DB) fiber.Handler {
 		result := RunRound()
 		LastRoundResult = result
 
-		winnersJSON, err := json.Marshal(result.Winners)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to serialize winners"})
-		}
-
-		_, err = db.Exec(`INSERT INTO roulette_results (winner_color, winners) VALUES ($1, $2)`, result.WinnerColor, winnersJSON)
-		if err != nil {
+		if err := saveRoundResultToDB(db, result); err != nil {
 			log.Printf("DB insert error: %v", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "failed to save result"})
 		}
@@ -178,6 +172,9 @@ func GetAllResultsHandler(db *sql.DB) fiber.Handler {
 	}
 }
 func saveRoundResultToDB(db *sql.DB, result dto.RoundResult) error {
+	if result.Winners == nil {
+		result.Winners = []dto.WinnerResult{}
+	}
 	winnersJSON, err := json.Marshal(result.Winners)
 	if err != nil {
 		return err
